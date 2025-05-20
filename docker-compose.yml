@@ -1,0 +1,66 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:13
+    container_name: airflow-postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: pet_database
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d
+
+  airflow-webserver:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airflow-webserver
+    depends_on:
+      - postgres
+    environment:
+      PYTHONPATH: /opt/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/pet_database
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'B8wq1ZfyvRkD_h7ObcK7uPKI3rcB5zVKzGvKl-8U8pY'
+      AIRFLOW__CORE__SECRET_KEY: 'B8wq1ZfyvRkD_h7ObcK7uPKI3rcB5zVKzGvKl-8U8pY'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - airflow-data:/opt/airflow/data
+      - /etc/localtime:/etc/localtime:ro
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "
+        airflow db upgrade &&
+        airflow users create --username admin --password admin --firstname Admin --lastname User --role Admin --email admin@example.com &&
+        airflow webserver
+      "
+
+  airflow-scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: airflow-scheduler
+    depends_on:
+      - postgres
+    environment:
+      PYTHONPATH: /opt/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/pet_database
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+      AIRFLOW__WEBSERVER__SECRET_KEY: 'B8wq1ZfyvRkD_h7ObcK7uPKI3rcB5zVKzGvKl-8U8pY'
+      AIRFLOW__CORE__SECRET_KEY: 'B8wq1ZfyvRkD_h7ObcK7uPKI3rcB5zVKzGvKl-8U8pY'
+    volumes:
+      - ./dags:/opt/airflow/dags
+      - airflow-data:/opt/airflow/data
+      - /etc/localtime:/etc/localtime:ro
+    command: airflow scheduler
+
+volumes:
+  postgres-db-volume:
+  airflow-data:
